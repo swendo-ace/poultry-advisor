@@ -31,6 +31,6 @@ def onset_thi_for_weight(weight_kg):
 if __name__ == "__main__":
     print(round(wet_bulb(20, 50), 1))
     print(round(thi(30, 60), 1))
-print(round(onset_thi_for_weight(2.0), 2))
-print(round(onset_thi_for_weight(1.0), 2))
-print(round(onset_thi_for_weight(3.5), 2))
+    print(round(onset_thi_for_weight(2.0), 2))
+    print(round(onset_thi_for_weight(1.0), 2))
+    print(round(onset_thi_for_weight(3.5), 2))

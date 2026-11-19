@@ -19,9 +19,18 @@ def thi(temp_c, rh):
 ONSET_POINTS = [(1.5, 25.7), (2.5, 22.6), (3.0, 21.1)]
 
 def onset_thi_for_weight(weight_kg):
-    #TODO: your job, see below
-    raise NotImplementedError
+    points = ONSET_POINTS
+    if weight_kg <= points[0][0]:
+        return points[0][1]
+    if weight_kg >= points[-1][0]:
+        return points[-1][1]
+    for (w1, t1), (w2, t2) in zip(points, points[1:]):
+        if w1 <= weight_kg <= w2:
+            return t1 + (weight_kg - w1) * (t2 - t1) / (w2 - w1)
 
 if __name__ == "__main__":
     print(round(wet_bulb(20, 50), 1))
     print(round(thi(30, 60), 1))
+print(round(onset_thi_for_weight(2.0), 2))
+print(round(onset_thi_for_weight(1.0), 2))
+print(round(onset_thi_for_weight(3.5), 2))

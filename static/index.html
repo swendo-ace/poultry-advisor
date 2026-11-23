@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewpoint" content="width=device-width, initial-scale=1">
+    <title>Flock Logbook</title>
+    <style>
+    body{font-family:Georgia,serif;background:#f3ead8;color:#2b2118;max-width:760px;margin:0 auto;padding:18px}
+    h1{border-bottom:3px double #2b2118;padding-bottom:6px}
+    input,select,button{font:inherit;padding-bottom:6px}
+    button{background:#2b2118;color:#f3ead8;border:0}
+    th,td{text-align:left;padding:5px;border-bottom:1px solid #b9a98a}
+    th{cursor:pointer}
+    .Normal{color:#2e6b34}.Watch{color:#9a6b00}.High{color:#c2561a}.Critical{color:#a30f1f;font-weight:bold}
+    #err{color:#a30f1f;font-weight:bold}
+    </style>
+    </head>
+    <body>
+    <h1>Flock Logbook: Solwezi</h1>
+    <input type="date" id="hatch">
+    <input type="number" id="weight" step="0.01" placeholder="or weight"> kg
+    <button onclick="load()">Check risk</button>
+    <p id="err"></p>
+    <p id ="sum"></p>
+    <select id="filter" onchange="draw()">
+    <option value="">All</option><option>Normal</option><option>Watch</option><option>High</option><option>Critical</option>
+    </select>
+    <table>
+    <thead><tr>
+    <th onclick="sortBy('time')">Time</th>
+    <th onclick="sortBy('temp_c')">Temp</th>
+    <th onclick="sortBy('humidity')">Humidity</th>
+    <th onclick="sortBy('gap')">Gap</th>
+    <th onclick="sortBy('tier')">Risk</th>
+    </tr></thead>
+    <tbody id="rows"></tbody>
+    </table>
+    <script>
+    const ORDER={Normal:0,Watch:1,High:2,Critical:3};
+    let rows=[],key="time",dir=1;
+    const $=id=>document.getElementById(id);
+
+async function load(){
+    const p=new URLSearchParams();
+    if($("weight").value)p.set("weight",$("weight").value);
+    else if($("hatch").value)p.set("hatch_date",$("hatch").value);
+    $("err").textContent="";
+    try{
+        const res=await fetch("/api/forecast?"+p);
+        const d=await res.json();
+        if(!res.ok)throw new Error(d.error||"Something went wrong.");
+        rows=d.readings;
+        const worst=rows.slice(0,24).reduce((a,b)=>ORDER[b.tier]>ORDER[a.tier]?b:a);
+        $("sum").textContent="Next 24h, worst: "+worst.tier+". "+worst.action+"(bird weight "+d.weight_kg+" kg, served by "+d.server+")";
+        draw();
+    }catch(e){
+        rows=[];draw();$("sum").textContent="";
+        $("err").textContent=e.message==="Failed to fetch"?"Cannot reach the server.":e.message;
+    }
+}
+
+function sortBy(k){dir=k===key?-dir:1;key=k;draw();}
+
+function draw(){
+    const f=$("filter").value;
+    const val=r=>key==="tier"?ORDER[r.tier]:r[key];
+    const shown=rows.filter(r=>!f||r.tier===f).sort((a,b)=>(val(a)>val(b)?1:-1)*dir);
+    $("rows").innerHTML=shown.map(r=>"<tr><td>"+r.time.replace("T"," ")+"</td><td>"+r.temp_c+"</td><td>"+r.humidity+"</td><td>"+r.gap+"</td><td class='"+r.tier+"'>"+r.tier+"</td></tr>").join("");
+}
+</script>
+</body>
+</html>

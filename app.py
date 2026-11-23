@@ -15,6 +15,11 @@ def add_server_header(response):
     response.headers["X-Served-By"] = HOSTNAME
     return response
 
+@app.route("/")
+def index():
+    return send_from_directory("static", "index.html")
+
+
 @app.route("/api/forecast")
 def forecast():
     weight_arg = request.args.get("weight")
@@ -25,7 +30,7 @@ def forecast():
         if weight_arg:
             weight = float(weight_arg)
         elif hatch_arg:
-            hatched = datetime.strptime(hatch_arg, "%Y-%m-d%").date()
+            hatched = datetime.strptime(hatch_arg, "%Y-%m-%d").date()
             age_days = (date.today() - hatched).days
             if age_days < 0 or age_days > 70:
                 return jsonify(error="Hatch date must be within the last 70 days."), 400
@@ -33,10 +38,10 @@ def forecast():
         else:
             return jsonify(error="Provide hatch_date (YYYY-MM-DD) or weight in kg."), 400
     except ValueError:
-        return jsonify(error)(error="Invalid weight or hatch date format."), 400
+        return jsonify(error="Invalid weight or hatch date format."), 400
 
-    if not -.03 <= weight <= 5:
-        return jsonify(error="Weight must be between 0.03 and 5kkg."), 400
+    if not 0.03 <= weight <= 5:
+        return jsonify(error="Weight must be between 0.03 and 5kg."), 400
 
     try:
         readings = get_hourly_readings()

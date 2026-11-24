@@ -1,7 +1,7 @@
 import math 
 
 def wet_bulb(temp_c, rh):
-    #Stull (2011) approximation. Valid roughly for RH 5-99% and sea-level pressure.
+    # Stull (2011) approximation. It's valid roughly for RH 5-99% and sea-level pressure.
     return (
         temp_c * math.atan(0.151977 * (rh + 8.313659) ** 0.5)
         + math.atan(temp_c + rh)

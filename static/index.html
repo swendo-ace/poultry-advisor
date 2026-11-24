@@ -65,7 +65,7 @@ function draw(){
     const f=$("filter").value;
     const val=r=>key==="tier"?ORDER[r.tier]:r[key];
     const shown=rows.filter(r=>!f||r.tier===f).sort((a,b)=>(val(a)>val(b)?1:-1)*dir);
-    $("rows").innerHTML=show.map(r=>"<tr><td>"+r.time.replace("T"," ")+"</td><td>"+r.temp_c+"</td><td>"+r.humidity+"</td><td>"+r.gap+"</td><td class='"+r.tier+"'>"+r.tier+"</td></tr>").join("");
+    $("rows").innerHTML=shown.map(r=>"<tr><td>"+r.time.replace("T"," ")+"</td><td>"+r.temp_c+"</td><td>"+r.humidity+"</td><td>"+r.gap+"</td><td class='"+r.tier+"'>"+r.tier+"</td></tr>").join("");
 }
 </script>
 </body>

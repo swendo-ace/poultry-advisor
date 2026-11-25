@@ -3,7 +3,7 @@
 This is a small web app that tells a broiler farmer in Solwezi, Zambia how risky the next 72 hours of weather are for her flock, hour by hour, and what to do about it.
 
 - **Deployed app (through the load balancer):** http://16.60.157.51/
-- **Demo video (2 minutes max):** [ADD YOUR VIDEO LINK HERE]
+- **Demo video:** https://drive.google.com/file/d/1BsuziIAp-B5bBWQiXiiPYyLKK6ngISll/view?usp=sharing
 - **Repository:** https://github.com/swendo-ace/poultry-advisor
 
 The app is served over plain HTTP, so browsers show "Not secure". HTTPS would need a domain name and a certificate, which this assignment does not provide.
@@ -18,7 +18,7 @@ The flock this was designed around is a small broiler flock near Solwezi, Zambia
 
 - Enter the **hatch or arrival date** of the birds, or type a **measured average weight** in kg. If you type a weight, it is used instead of the date.
 - Hourly forecast for the next 72 hours with temperature, humidity and a risk tier: Normal, Watch, High or Critical.
-- A summary line showing the worst risk in the next 24 hours and a plain action for it (for example "Increase airflow, give cool water, keep birds calm").
+- A summary line showing the worst risk in the next 24 hours and a plain action for it (for example "Increase airflow, give cool water, keep birds calm"), plus the weight used and which server answered.
 - **Sort** the table by clicking any column heading.
 - **Filter** by risk tier with the dropdown.
 - Clear error messages for a bad date, a bad weight, or the weather service being unreachable.
@@ -44,8 +44,8 @@ Browser --> Internet --> lb-01 (Nginx) --> web-01 (Nginx + gunicorn + Flask) -->
 
 1. Temperature and relative humidity for each hour are turned into a wet-bulb temperature (Stull 2011 approximation).
 2. A broiler temperature-humidity index (THI) is computed as 0.85 x dry-bulb + 0.15 x wet-bulb.
-3. Heavier birds start to overheat at a lower THI, so the app looks up the THI where stress begins for the bird's weight, interpolating between a few published reference points. Birds lighter than the lowest reference point use that point's value, which makes the app slightly over-cautious for young birds.
-4. The gap between the hour's THI and that onset THI decides the tier: more than 2 below onset is Normal, 0 to 2 below is Watch, 0 to 2 above is High, more than 2 above is Critical.
+3. Heavier birds start to overheat at a lower THI, so the app looks up the THI where stress begins for the bird's weight, interpolating between a few reference points. Birds lighter than the lowest reference point (1.5 kg) use that point's value, which is an assumption, not a measurement (see the limitations below).
+4. The gap between the hour's THI and that onset THI decides the tier. With `BAND = 2.0` in `risk.py`: more than 2 below onset is Normal, 0 to 2 below is Watch, 0 to 2 above is High, more than 2 above is Critical.
 5. If only a hatch date is given, weight is estimated from age using a table of typical broiler weights.
 
 ## API used
@@ -56,6 +56,7 @@ Browser --> Internet --> lb-01 (Nginx) --> web-01 (Nginx + gunicorn + Flask) -->
 - Endpoint used: `https://api.open-meteo.com/v1/forecast`
 - Parameters used: `latitude`, `longitude`, `hourly=temperature_2m,relative_humidity_2m`, `timezone=Africa/Lusaka`, `forecast_days=3`
 - **No API key is needed.** The calls work without one, so there are no keys or secrets anywhere in this repository.
+- Open-Meteo's free API is for non-commercial use, and its data is licensed under CC BY 4.0, so it is credited below. This project is coursework and non-commercial.
 
 ## Run it locally
 
@@ -83,7 +84,7 @@ pip install -r requirements.txt
 python app.py
 ```
 
-Then open http://127.0.0.1:5000/ and enter a hatch date from the last 70 days (or a weight in kg) and click **Check risk**.
+Then open http://127.0.0.1:5000/ and enter a hatch date from the last 70 days (or a weight in kg) and click **Check risk**. Running locally, the summary line shows the name of your own computer after "served by".
 
 If PowerShell refuses to run the activate script, run `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` once and try again.
 
@@ -207,15 +208,19 @@ Run this on both web servers.
 From my laptop I sent six requests to the load balancer and printed which server answered each one:
 
 ```powershell
-1..6 | ForEach-Object { (Invoke-WebRequest "http://16.60.157.51/api/forecast?hatch_date=2026-10-25" -UseBasicParsing).Headers["X-Served-By"] }
+1..6 | ForEach-Object { curl.exe -s -D - -o NUL "http://16.60.157.51/api/forecast?weight=1" | Select-String "X-Served-By" }
 ```
 
-The result alternated `7427-web-01`, `7427-web-02`, `7427-web-01`, `7427-web-02`, `7427-web-01`, `7427-web-02`. I also opened http://16.60.157.51/ in a browser and checked that the form, summary, table, sorting and filtering all work. [ADD A SCREENSHOT OF THE ALTERNATING OUTPUT TO THE REPO AND LINK IT HERE]
+The result alternated `7427-web-02`, `7427-web-01`, `7427-web-02`, `7427-web-01`, `7427-web-02`, `7427-web-01`:
+
+![Six requests through the load balancer alternating between web-02 and web-01](lb-proof.png)
+
+I also opened http://16.60.157.51/ in a browser and checked that the form (with a weight and with a date), the summary, the table, sorting and filtering all work, and that a weight of 9 kg gives a readable error. The summary line named both web-01 and web-02 across different presses.
 
 ## Error handling
 
 - Bad or missing date or weight: the API returns a 400 with a readable message, and the page shows it in red.
-- A hatch date in the future or more than 70 days old is rejected with an explanation.
+- A hatch date in the future or more than 70 days old is rejected with an explanation. A weight outside 0.03 to 5 kg is rejected too.
 - Weather service down or returning something unexpected: the API returns a 502 and the page says it cannot reach the weather data, instead of crashing.
 - Hours with missing readings are skipped.
 
@@ -228,10 +233,11 @@ The result alternated `7427-web-01`, `7427-web-02`, `7427-web-01`, `7427-web-02`
 ## Design decisions and limitations
 
 - **Weight beats age.** The heat-stress research I used is organised by body weight, not age, so the app converts age to weight when it has to. Typing a real weight is more accurate.
-- **The tier cutoffs are my own choice.** The 2-unit bands around the onset point are not a published standard. I picked them as a simple, explainable way to turn the gap into four levels. [ADD YOUR OWN REASONING FOR THIS CHOICE, AND WHAT YOU WOULD CHECK WITH A POULTRY EXPERT]
-- **Some inputs are not independently verified.** The THI formula and the onset values come from a secondary summary of published research, and I have not checked them against the original papers. The age-to-weight table comes from figures a local broiler farmer gave me, not from a breeder's performance guide. Treat the output as guidance, not a measurement.
-- **The reference weights start at 1.5 kg**, so young birds under that use the lowest reference value, which errs on the side of caution.
-- **Altitude.** Solwezi is about 1,381 m above sea level, and the wet-bulb formula assumes sea-level pressure, so the numbers are slightly approximate.
+- **The tier cutoffs are my own choice and are untested.** The 2-unit bands (`BAND = 2.0`) around the onset point are not a published standard. I picked a width that seemed big enough to be useful, because I had no research numbers to base it on, and I did not try other values. As an example from the forecast on 25 November 2026, a 1 kg bird's gap ran from about -7.65 (06:00 on 25 Nov) to +2.05 (13:00 on 27 Nov), and only that one hour reached Critical. For a 1.829 kg bird (hatch date 25 October) in the same weather, the gap was 1.37 at 14:00 on 25 Nov. That difference comes from the onset curve I built, which is an assumption and not measured bird data, so these numbers will change with the weather and with the curve.
+- **What I would ask a poultry expert.** My sister keeps broilers, so I would ask her at what temperature and humidity she starts to worry about her birds, and whether young birds under 1.5 kg really share the same onset point as 1.5 kg birds, since my model assumes they do.
+- **Some inputs are not independently verified.** The onset values come from a secondary summary of published research, and I have not checked them against the original papers. The age-to-weight table comes from figures a local broiler farmer gave me, not from a breeder's performance guide. Treat the output as guidance, not a measurement.
+- **The Tao and Xin (2003) index is not used exactly.** Their index also includes air velocity, and their birds were about 2.8 kg broilers tested at 35 to 41 degrees C. This app only uses the temperature and humidity part (0.85 x dry-bulb + 0.15 x wet-bulb), and it is applied to birds and temperatures well outside what that study tested. I have not read the full paper.
+- **Altitude.** Solwezi is about 1,381 m above sea level, and the wet-bulb formula assumes sea-level pressure and relative humidity between 5 and 99 percent, so the numbers are slightly approximate.
 - **One location.** The forecast is fixed to Solwezi.
 - **HTTP only**, as noted at the top.
 
@@ -241,15 +247,24 @@ The result alternated `7427-web-01`, `7427-web-02`, `7427-web-01`, `7427-web-02`
 - **Commands ran on the wrong machine.** After the failed login I kept pasting server commands, which ran on my own laptop and created a stray nested copy of the project. I deleted the extra folder and learned to check that the prompt shows `ubuntu@...` before pasting.
 - **502 Bad Gateway on web-01.** Nginx was fine but gunicorn was not running, because the long block of commands I pasted had not fully executed (the project folder did not exist yet). Running the install steps in smaller groups, then restarting the service, fixed it.
 - **Empty table on the deployed page.** The summary showed but the table did not. Viewing the page source showed the drawing code referred to a variable that did not exist. One corrected word and a `git pull` on both servers fixed it.
-- [ADD ONE OR TWO CHALLENGES IN YOUR OWN WORDS, AND WHAT YOU WOULD DO DIFFERENTLY]
+- **Typing errors in hand-typed code.** I typed the code by hand in VS Code and made small mistakes, such as a comma where a dot belonged in `math.atan` and a wrong variable name. Reading the error message and its line number each time was how I found them. Next time I would run the code after every small piece instead of after several.
+
+## AI use
+
+I used Claude (an AI assistant) for this README. I also used it during development for guidance and debugging, and for code that I typed into VS Code myself and then fixed from error messages. The course brief allows AI for the README. See the CodeVibe report below for the code's AI figure.
+
+## CodeVibe report
+
+- **Report:** [ADD THE LINK OR FILE PATH TO YOUR CODEVIBE REPORT, FOR EXAMPLE codevibe-reports/YOUR-FILE-NAME]
+- **AI-authorship figure shown by CodeVibe:** [ADD THE EXACT FIGURE SHOWN IN YOUR REPORT]
 
 ## Credits
 
-- Weather data: [Open-Meteo](https://open-meteo.com), terms at https://open-meteo.com/en/terms
+- Weather data: [Open-Meteo](https://open-meteo.com), terms at https://open-meteo.com/en/terms, data licensed under CC BY 4.0
 - [Flask](https://flask.palletsprojects.com), [Requests](https://requests.readthedocs.io), [Gunicorn](https://gunicorn.org) and [Nginx](https://nginx.org)
 - Heat stress background: Butcher, G. D. and Miles, R., *Heat Stress Management in Broilers*, UF/IFAS Extension (EDIS VM019), https://edis.ifas.ufl.edu/publication/VM019
-- Wet-bulb approximation: Stull, R. (2011), "Wet-Bulb Temperature from Relative Humidity and Air Temperature", Journal of Applied Meteorology and Climatology
-- Broiler temperature-humidity index as reported from Tao and Xin (2003), cited through a secondary summary and not read in the original
+- Wet-bulb approximation: Stull, R. (2011), "Wet-Bulb Temperature from Relative Humidity and Air Temperature", Journal of Applied Meteorology and Climatology 50(11), 2267-2269, https://doi.org/10.1175/JAMC-D-11-0143.1
+- Broiler temperature-humidity index: Tao, X. and Xin, H. (2003), "Acute Synergistic Effects of Air Temperature, Humidity, and Velocity on Homeostasis of Market-Size Broilers", used in the simplified form described above
 - Typical broiler weights by age: figures from a local broiler farmer in Zambia
 - Course material and the professor's architecture diagram for the two-server and load balancer layout
 

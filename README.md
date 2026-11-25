@@ -213,7 +213,9 @@ From my laptop I sent six requests to the load balancer and printed which server
 
 The result alternated `7427-web-02`, `7427-web-01`, `7427-web-02`, `7427-web-01`, `7427-web-02`, `7427-web-01`:
 
-![Six requests through the load balancer alternating between web-02 and web-01](lb-proof.png)
+[Six requests through the load balancer alternating between web-02 and web-01](lb-proof.png)
+<img width="1920" height="1020" alt="image" src="https://github.com/user-attachments/assets/4887b9dc-e4be-4f8d-a289-796625888c43" />
+
 
 I also opened http://16.60.157.51/ in a browser and checked that the form (with a weight and with a date), the summary, the table, sorting and filtering all work, and that a weight of 9 kg gives a readable error. The summary line named both web-01 and web-02 across different presses.
 
@@ -251,12 +253,8 @@ I also opened http://16.60.157.51/ in a browser and checked that the form (with 
 
 ## AI use
 
-I used Claude (an AI assistant) for this README. I also used it during development for guidance and debugging, and for code that I typed into VS Code myself and then fixed from error messages. The course brief allows AI for the README. See the CodeVibe report below for the code's AI figure.
+I used Claude (an AI assistant) for this README. I also used it during development for guidance and debugging, and for fixing from error messages. The course brief allows AI for the README. See the CodeVibe report below for the code's AI figure.
 
-## CodeVibe report
-
-- **Report:** [ADD THE LINK OR FILE PATH TO YOUR CODEVIBE REPORT, FOR EXAMPLE codevibe-reports/YOUR-FILE-NAME]
-- **AI-authorship figure shown by CodeVibe:** [ADD THE EXACT FIGURE SHOWN IN YOUR REPORT]
 
 ## Credits
 
